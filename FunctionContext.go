@@ -3,32 +3,35 @@ package main
 import (
 	"context"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/teris-io/shortid"
+	"os"
 )
 
 type FunctionContext struct {
-	Context context.Context
-	SpanId  string
-	Logger  *zerolog.Logger
+	Context        context.Context
+	SpanId         string
+	spanIdLogField string
+	Logger         *zerolog.Logger
 }
 
-func FuncCtx() FunctionContext {
+func FuncCtx(ctx context.Context) FunctionContext {
 	spanId := shortid.MustGenerate()
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
-	//log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	logger := zerolog.New(os.Stdout).With().Ctx(ctx).Timestamp().Str("spanId", "["+spanId+"]").Logger()
 
-	log.Info().Msg("Info Message")
-	log.Error().Msg("Error Message")
-	log.Warn().Msg("Warn Message")
-	log.Debug().Msg("Debug Message")
-	log.Trace().Msg("Trace Message")
+	logger.Info().Msg("Info Message")
+	logger.Error().Msg("Error Message")
+	logger.Warn().Msg("Warn Message")
+	logger.Debug().Msg("Debug Message")
+	logger.Trace().Msg("Trace Message")
 	//log.Panic().Msg("Panic Message")
-	log.Fatal().Msg("Fatal Message")
+	//logger.Fatal().Msg("Fatal Message")
 
 	return FunctionContext{
-		SpanId: spanId,
+		SpanId:         spanId,
+		spanIdLogField: "[" + spanId + "] ",
+		Logger:         &logger,
 	}
 
 }
