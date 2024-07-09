@@ -113,6 +113,8 @@ ctx.OkResponseJson(SampleData{Data:"Hello, World!"})
 //  Alternatively you can call
 
 ctx.OkResponseJson(tk.Json{"data":"Hello, World!"})
+//  Ginkgo misinterprets tk.Json as an map[string]interface{}, which causes tests to fail. When comparing tk.Json in your tests you should call .AsMap() on the tk.Json object you are comparing your response to prevent this bug from occurring.
+//   Expect(res.Data).To(Equal(tk.Json{"Foo": "Bar", "Heh": 1234.}.AsMap()))
 ```
 
 The ctx object also has methods for returning and logging invalid responses and errors. You can use the ``ctx.FailResponse(code, message)`` and ``ctx.ErrResponse(code, error, message)`` methods to automatically build and send a Json object with the given error code and a message for the user. Both methods also add a message to the logs, and the ``ctx.ErrResponse`` method also accepts an error object as an argument, which will also be added to the logs.
