@@ -1,4 +1,4 @@
-module function_toolkit
+module github.com/Platform48/function_toolkit
 
 go 1.22
 
