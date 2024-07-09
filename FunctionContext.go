@@ -173,7 +173,7 @@ func (this FunctionContext) FailResponse(errorCode int, explanation string) {
 func (this FunctionContext) ErrResponse(errorCode int, err error, explanation string) {
 	w := this.Response
 
-	this.Errorf("Fatal exception occured (Error code %v) \"%s\": %s", errorCode, explanation, err.Error())
+	this.Errorf("Exception occured (Error code %v) \"%s\": %s", errorCode, explanation, err.Error())
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
