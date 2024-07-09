@@ -13,6 +13,7 @@ import (
 
 func generateOkJson(w http.ResponseWriter, r *http.Request) {
 	ctx := tk.FuncCtx(w, r)
+
 	ctx.Info("Started!")
 	ctx.OkResponseJson(tk.J{"Foo": "Bar", "Heh": 1234})
 }

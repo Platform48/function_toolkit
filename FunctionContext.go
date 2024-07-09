@@ -79,6 +79,32 @@ func (this FunctionContext) WithCtx(ctx context.Context) FunctionContext {
 	}
 }
 
+func (this FunctionContext) GetParameter(name string) string {
+	return this.Request.URL.Query().Get(name)
+}
+func (this FunctionContext) HasParameter(name string) bool {
+	return this.Request.URL.Query().Has(name)
+}
+func (this FunctionContext) GetBody() ([]byte, error) {
+	var result []byte = make([]byte, this.Request.ContentLength)
+	_, err := this.Request.Body.Read(result)
+
+	return result, err
+}
+func (this FunctionContext) GetJsonBody(result *any) error {
+	bytes, err := this.GetBody()
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, result)
+}
+func (this FunctionContext) GetHeader(name string) string {
+	return this.Request.Header.Get(name)
+}
+func (this FunctionContext) SetResponseHeader(name string, value string) {
+	this.Response.Header().Set(name, value)
+}
+
 func (this FunctionContext) Info(message string) {
 	this.Logger.Info().Msg(this.spanIdLogField + message)
 }
@@ -142,7 +168,7 @@ func (this FunctionContext) Debugf(format string, args ...interface{}) {
 	this.Logger.Debug().Msgf(this.spanIdLogField+format, args...)
 }
 
-func (this FunctionContext) FailResponse(errorCode int, err error, explanation string) {
+func (this FunctionContext) FailResponse(errorCode int, explanation string) {
 	this.ErrResponse(errorCode, nil, explanation)
 }
 func (this FunctionContext) ErrResponse(errorCode int, err error, explanation string) {
@@ -168,7 +194,7 @@ func (this FunctionContext) ErrResponse(errorCode int, err error, explanation st
 	}
 }
 
-func (this FunctionContext) OkResponseRaw(format string, data []byte) {
+func (this FunctionContext) OkResponse(format string, data []byte) {
 	w := this.Response
 
 	this.Info("Finished processing the request")
@@ -182,7 +208,7 @@ func (this FunctionContext) OkResponseRaw(format string, data []byte) {
 	}
 }
 func (this FunctionContext) OkResponseJson(object interface{}) {
-	this.Info("Generating JSON response")
+	this.Debug("Generating JSON response")
 
 	resp := SuccessResponse{
 		SpanId: this.spanIdLogField,
@@ -194,7 +220,7 @@ func (this FunctionContext) OkResponseJson(object interface{}) {
 		this.Logger.Panic().Msg(this.spanIdLogField + "Could not serialize object: " + err.Error())
 	}
 
-	this.OkResponseRaw("application/json; charset=utf-8", bytes)
+	this.OkResponse("application/json; charset=utf-8", bytes)
 }
 
 func (this J) AsMap() map[string]interface{} {
