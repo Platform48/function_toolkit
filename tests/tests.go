@@ -15,7 +15,7 @@ func generateOkJson(w http.ResponseWriter, r *http.Request) {
 	ctx := tk.FuncCtx(w, r)
 
 	ctx.Info("Started!")
-	ctx.OkResponseJson(tk.J{"Foo": "Bar", "Heh": 1234})
+	ctx.OkResponseJson(tk.Json{"Foo": "Bar", "Heh": 1234})
 }
 
 var errorGuard = errors.New("Test Error")
@@ -30,7 +30,6 @@ var _ = Describe("Toolkit OkJson", func() {
 	var rq *http.Request
 	var rr *httptest.ResponseRecorder
 	var method string
-	//var jsonData string
 	var body bytes.Buffer
 
 	BeforeEach(func() {
@@ -54,7 +53,7 @@ var _ = Describe("Toolkit OkJson", func() {
 			err := json.NewDecoder(rr.Body).Decode(&res)
 			Expect(rr.Code).To(Equal(http.StatusOK))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Data).To(Equal(tk.J{"Foo": "Bar", "Heh": 1234.}.AsMap()))
+			Expect(res.Data).To(Equal(tk.Json{"Foo": "Bar", "Heh": 1234.}.AsMap()))
 		})
 	})
 })
@@ -63,7 +62,6 @@ var _ = Describe("Toolkit ErrJson", func() {
 	var rq *http.Request
 	var rr *httptest.ResponseRecorder
 	var method string
-	//var jsonData string
 	var body bytes.Buffer
 
 	BeforeEach(func() {

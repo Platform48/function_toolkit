@@ -56,7 +56,7 @@ Each of these methods also have an f variant (e.g.: ``ctx.Infof(format, ...args)
 ctx.Debug("Debug level message")
 ctx.Info("Info level message")
 ctx.Warn("Warn level message")
-ctx.Info("Error level message")
+ctx.Error("Error level message")
 
 ctx.Log(tk.LogLevelDebug, " ") //  You can use tk.LogLevelDebug, tk.LogLevelInfo, tk.LogLevelWarn, and tk.LogLevelError to indicate the log level
 
@@ -76,7 +76,7 @@ Sample output from the above example
 12:00PM DBG [5Wc6d2_Sg] Debug level message
 12:00PM INF [5Wc6d2_Sg] Info level message
 12:00PM WRN [5Wc6d2_Sg] Warn level message
-12:00PM INF [5Wc6d2_Sg] Error level message
+12:00PM ERR [5Wc6d2_Sg] Error level message
 12:00PM DBG [5Wc6d2_Sg]  
 12:00PM DBG [5Wc6d2_Sg] Number 1
 12:00PM INF [5Wc6d2_Sg] Number 2
@@ -96,7 +96,7 @@ When you are done with processing your request, the ctx object will provide you 
 You can call the ``ctx.OkResponse(format, bytes)`` method with the Content-Type, and the bytes for the response. This method automatically builds and sends the response for you.
 
 This method takes in bytes as input, however most of your responses are likely to be in the Json format. Fortunately, you can use the ``ctx.OkResponseJson(obj)`` method to automatically serialize the given struct with the json.Marshal converter, and the ``application/json; charset=utf-8`` Content Type.
-If you don't want to define a struct for every possible response, you can also use the ``toolkit.J`` object to define your objects inline.
+If you don't want to define a struct for every possible response, you can also use the ``toolkit.Json`` object to define your objects inline.
 
 You can also add additional headers to your response with the ``ctx.SetResponseHeader(name, value)`` method.
 
@@ -112,7 +112,7 @@ ctx.OkResponseJson(SampleData{Data:"Hello, World!"})
 
 //  Alternatively you can call
 
-ctx.OkResponseJson(tk.J{"data":"Hello, World!"})
+ctx.OkResponseJson(tk.Json{"data":"Hello, World!"})
 ```
 
 The ctx object also has methods for returning and logging invalid responses and errors. You can use the ``ctx.FailResponse(code, message)`` and ``ctx.ErrResponse(code, error, message)`` methods to automatically build and send a Json object with the given error code and a message for the user. Both methods also add a message to the logs, and the ``ctx.ErrResponse`` method also accepts an error object as an argument, which will also be added to the logs.

@@ -31,14 +31,13 @@ type ErrorResponse struct {
 	SpanId    string `json:"spanId"`
 	ErrorCode int    `json:"errorCode"`
 	Message   string `json:"message", omitempty`
-	//Reason    string `json:"reason", omitempty`
 }
 type SuccessResponse struct {
 	SpanId string      `json:"spanId"`
 	Data   interface{} `json:"data,omitempty"`
 }
 
-type J map[string]any
+type Json map[string]any
 
 func FuncCtx(w http.ResponseWriter, r *http.Request) FunctionContext {
 	spanId := shortid.MustGenerate()
@@ -208,7 +207,6 @@ func (this FunctionContext) OkResponse(format string, data []byte) {
 	}
 }
 func (this FunctionContext) OkResponseJson(object interface{}) {
-	this.Debug("Generating JSON response")
 
 	resp := SuccessResponse{
 		SpanId: this.spanIdLogField,
@@ -223,6 +221,6 @@ func (this FunctionContext) OkResponseJson(object interface{}) {
 	this.OkResponse("application/json; charset=utf-8", bytes)
 }
 
-func (this J) AsMap() map[string]interface{} {
+func (this Json) AsMap() map[string]interface{} {
 	return this
 }
