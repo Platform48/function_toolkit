@@ -1,4 +1,4 @@
-package main
+package toolkit
 
 import (
 	"context"
@@ -16,33 +16,67 @@ const (
 	LogLevelError
 )
 
+var isLocalDeployment = (0 == (len(os.Getenv("FUNCTION_NAME")) + len(os.Getenv("FUNCTION_REGION")) + len(os.Getenv("FUNCTION_IDENTITY")) + len(os.Getenv("K_SERVICE")) + len(os.Getenv("K_CONFIGURATION")) + len(os.Getenv("GOOGLE_FUNCTION_TARGET")) + len(os.Getenv("GOOGLE_CLOUD_PROJECT"))))
+
 type FunctionContext struct {
 	Context        context.Context
 	SpanId         string
 	spanIdLogField string
 	Logger         *zerolog.Logger
 	Response       http.ResponseWriter
-	Request        http.Request
+	Request        *http.Request
 }
 
-func FuncCtx() FunctionContext {
+type ErrorResponse struct {
+	SpanId    string `json:"spanId"`
+	ErrorCode int    `json:"errorCode"`
+	Message   string `json:"message", omitempty`
+	//Reason    string `json:"reason", omitempty`
+}
+type SuccessResponse struct {
+	SpanId string      `json:"spanId"`
+	Data   interface{} `json:"data,omitempty"`
+}
+
+type J map[string]any
+
+func FuncCtx(w http.ResponseWriter, r *http.Request) FunctionContext {
 	spanId := shortid.MustGenerate()
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
 	logger := zerolog.New(os.Stdout).With().Ctx(context.Background()).Timestamp().Str("spanId", "["+spanId+"]").Logger()
+	if isLocalDeployment {
+		logger = logger.Output(zerolog.ConsoleWriter{
+			Out:           os.Stdout,
+			PartsOrder:    []string{zerolog.TimestampFieldName, zerolog.LevelFieldName, "spanId", zerolog.CallerFieldName, zerolog.MessageFieldName},
+			FieldsExclude: []string{"spanId"},
+		})
+	}
 
-	logger.Info().Msg("Info Message")
-	logger.Error().Msg("Error Message")
-	logger.Warn().Msg("Warn Message")
-	logger.Debug().Msg("Debug Message")
-	logger.Trace().Msg("Trace Message")
+	var spanIdLogField = "[" + spanId + "] "
+	if isLocalDeployment {
+		spanIdLogField = ""
+	}
 
 	return FunctionContext{
 		SpanId:         spanId,
-		spanIdLogField: "[" + spanId + "] ",
+		spanIdLogField: spanIdLogField,
 		Logger:         &logger,
+		Response:       w,
+		Request:        r,
+		Context:        r.Context(),
 	}
 
+}
+func (this FunctionContext) WithCtx(ctx context.Context) FunctionContext {
+	return FunctionContext{
+		SpanId:         this.SpanId,
+		spanIdLogField: this.spanIdLogField,
+		Logger:         this.Logger,
+		Response:       this.Response,
+		Request:        this.Request,
+		Context:        ctx,
+	}
 }
 
 func (this FunctionContext) Info(message string) {
@@ -76,6 +110,24 @@ func (this FunctionContext) Log(level int, message string) {
 	}
 	e.Msg(this.spanIdLogField + message)
 }
+func (this FunctionContext) Logf(level int, format string, args ...interface{}) {
+	var e *zerolog.Event
+	switch level {
+	case LogLevelDebug:
+		e = this.Logger.Debug()
+		break
+	case LogLevelInfo:
+		e = this.Logger.Info()
+		break
+	case LogLevelWarn:
+		e = this.Logger.Warn()
+		break
+	case LogLevelError:
+		e = this.Logger.Error()
+		break
+	}
+	e.Msgf(this.spanIdLogField+format, args...)
+}
 
 func (this FunctionContext) Infof(format string, args ...interface{}) {
 	this.Logger.Info().Msgf(this.spanIdLogField+format, args...)
@@ -90,28 +142,20 @@ func (this FunctionContext) Debugf(format string, args ...interface{}) {
 	this.Logger.Debug().Msgf(this.spanIdLogField+format, args...)
 }
 
-type errorResponse struct {
-	SpanId    string `json:"spanId"`
-	ErrorCode int    `json:"errorCode"`
-	Message   string `json:"message", omitempty`
-	//Reason    string `json:"reason", omitempty`
+func (this FunctionContext) FailResponse(errorCode int, err error, explanation string) {
+	this.ErrResponse(errorCode, nil, explanation)
 }
-type successResponse struct {
-	SpanId string      `json:"spanId"`
-	Data   interface{} `json:"data,omitempty"`
-}
-
 func (this FunctionContext) ErrResponse(errorCode int, err error, explanation string) {
 	w := this.Response
 
 	this.Errorf("Fatal exception occured (Error code %v) \"%s\": %s", errorCode, explanation, err.Error())
 
-	w.Header().Set("SpanId", this.SpanId)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	result, err := json.Marshal(errorResponse{
-		SpanId:  this.SpanId,
-		Message: explanation,
+	result, err := json.Marshal(ErrorResponse{
+		SpanId:    this.SpanId,
+		Message:   explanation,
+		ErrorCode: errorCode,
 	})
 
 	if err != nil {
@@ -124,17 +168,14 @@ func (this FunctionContext) ErrResponse(errorCode int, err error, explanation st
 	}
 }
 
-type Json map[string]any
-
 func (this FunctionContext) OkResponseRaw(format string, data []byte) {
 	w := this.Response
 
 	this.Info("Finished processing the request")
 
-	w.Header().Set("SpanId", this.SpanId)
 	w.Header().Set("Content-Type", format)
 
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	_, err := w.Write(data)
 	if err != nil {
 		this.Logger.Panic().Msg(this.spanIdLogField + "Could not send response to user: " + err.Error())
@@ -143,7 +184,7 @@ func (this FunctionContext) OkResponseRaw(format string, data []byte) {
 func (this FunctionContext) OkResponseJson(object interface{}) {
 	this.Info("Generating JSON response")
 
-	resp := successResponse{
+	resp := SuccessResponse{
 		SpanId: this.spanIdLogField,
 		Data:   object,
 	}
@@ -154,4 +195,8 @@ func (this FunctionContext) OkResponseJson(object interface{}) {
 	}
 
 	this.OkResponseRaw("application/json; charset=utf-8", bytes)
+}
+
+func (this J) AsMap() map[string]interface{} {
+	return this
 }
