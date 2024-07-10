@@ -3,6 +3,7 @@ package toolkit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/rs/zerolog"
 	"github.com/teris-io/shortid"
 	"net/http"
@@ -19,31 +20,44 @@ const (
 var isLocalDeployment = (0 == (len(os.Getenv("FUNCTION_NAME")) + len(os.Getenv("FUNCTION_REGION")) + len(os.Getenv("FUNCTION_IDENTITY")) + len(os.Getenv("K_SERVICE")) + len(os.Getenv("K_CONFIGURATION")) + len(os.Getenv("GOOGLE_FUNCTION_TARGET")) + len(os.Getenv("GOOGLE_CLOUD_PROJECT"))))
 
 type FunctionContext struct {
-	Context        context.Context
-	SpanId         string
-	spanIdLogField string
-	Logger         *zerolog.Logger
-	Response       http.ResponseWriter
-	Request        *http.Request
+	Context         context.Context
+	SpanId          string
+	spanIdLogField  string
+	Logger          *zerolog.Logger
+	Response        http.ResponseWriter
+	Request         *http.Request
+	stackFrameLevel int
 }
 
-type ErrorResponse struct {
+// Struct used internally to return data in an invalid json response. Exported to allow for manually building responses
+type ErrorResponseStruct struct {
 	SpanId    string `json:"spanId"`
 	ErrorCode int    `json:"errorCode"`
 	Message   string `json:"message", omitempty`
 }
-type SuccessResponse struct {
+
+// Struct used internally to return data in a successful json response. Exported to allow for manually building responses
+type SuccessResponseStruct struct {
 	SpanId string      `json:"spanId"`
 	Data   interface{} `json:"data,omitempty"`
 }
 
+// Creates a json object in the json format. Example:
+/*
+tk.Json{
+"foo":"bar"
+}
+*/
+// Results in an object which serializes to
+/* { "foo":"bar" }*/
 type Json map[string]any
 
+// Creates the FunctionContext from the given request reader and response writer. Generates a new span id and context.Context from the request.
 func FuncCtx(w http.ResponseWriter, r *http.Request) FunctionContext {
 	spanId := shortid.MustGenerate()
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
-	logger := zerolog.New(os.Stdout).With().Ctx(context.Background()).Timestamp().Str("spanId", "["+spanId+"]").Logger()
+	logger := zerolog.New(os.Stdout).With().Timestamp().Str("spanId", "["+spanId+"]").Logger()
 	if isLocalDeployment {
 		logger = logger.Output(zerolog.ConsoleWriter{
 			Out:           os.Stdout,
@@ -58,65 +72,94 @@ func FuncCtx(w http.ResponseWriter, r *http.Request) FunctionContext {
 	}
 
 	return FunctionContext{
-		SpanId:         spanId,
-		spanIdLogField: spanIdLogField,
-		Logger:         &logger,
-		Response:       w,
-		Request:        r,
-		Context:        r.Context(),
+		SpanId:          spanId,
+		spanIdLogField:  spanIdLogField,
+		Logger:          &logger,
+		Response:        w,
+		Request:         r,
+		Context:         r.Context(),
+		stackFrameLevel: 1,
 	}
-
 }
+
+// Generates a copy of this ctx object with the given context.Context as its context.
 func (this FunctionContext) WithCtx(ctx context.Context) FunctionContext {
 	return FunctionContext{
-		SpanId:         this.SpanId,
-		spanIdLogField: this.spanIdLogField,
-		Logger:         this.Logger,
-		Response:       this.Response,
-		Request:        this.Request,
-		Context:        ctx,
+		SpanId:   this.SpanId,
+		Logger:   this.Logger,
+		Response: this.Response,
+		Request:  this.Request,
+		Context:  ctx,
+
+		spanIdLogField:  this.spanIdLogField,
+		stackFrameLevel: 1,
 	}
 }
 
+// Returns the value of the given query parameter from the request sent by the user.
+// Short for ctx.Request.URL.Query().Get(name)
 func (this FunctionContext) GetParameter(name string) string {
 	return this.Request.URL.Query().Get(name)
 }
+
+// Returns true if te request esnt by the user has the given query parameter, false otherwise
+// Short for ctx.Request.URL.Query().Has(name)
 func (this FunctionContext) HasParameter(name string) bool {
 	return this.Request.URL.Query().Has(name)
 }
+
+// Returns the requests body as a byte array. Returns a byte array, and errors which might occur when the request is invalid
 func (this FunctionContext) GetBody() ([]byte, error) {
 	var result []byte = make([]byte, this.Request.ContentLength)
 	_, err := this.Request.Body.Read(result)
 
 	return result, err
 }
+
+// Deserializes the request's body into the given object through json.Unmarshal(). Returns an error in case the request is invalid, or is not in the json format. Also checks the Content-Type header to make sure the body is in the json format.
 func (this FunctionContext) GetJsonBody(result *any) error {
+	if this.GetHeader("Content-Type") != "application/json" {
+		return errors.New("Content-Type must be application/json")
+	}
 	bytes, err := this.GetBody()
 	if err != nil {
 		return err
 	}
 	return json.Unmarshal(bytes, result)
 }
+
+// Returns the value of the given header from the request sent by the user.
+// Short for ctx.Request.Header.Get(name)
 func (this FunctionContext) GetHeader(name string) string {
 	return this.Request.Header.Get(name)
 }
+
+// Adds/sets the given header on the generated response to the given value.
 func (this FunctionContext) SetResponseHeader(name string, value string) {
 	this.Response.Header().Set(name, value)
 }
 
+// logs a message to the console at the INFO level
 func (this FunctionContext) Info(message string) {
-	this.Logger.Info().Msg(this.spanIdLogField + message)
-}
-func (this FunctionContext) Warn(message string) {
-	this.Logger.Warn().Msg(this.spanIdLogField + message)
-}
-func (this FunctionContext) Error(message string) {
-	this.Logger.Error().Msg(this.spanIdLogField + message)
-}
-func (this FunctionContext) Debug(message string) {
-	this.Logger.Debug().Msg(this.spanIdLogField + message)
+	this.Logger.Info().Ctx(this.Context).Caller(this.stackFrameLevel).Msg(this.spanIdLogField + message)
 }
 
+// logs a message to the console at the WARN level
+func (this FunctionContext) Warn(message string) {
+	this.Logger.Warn().Ctx(this.Context).Caller(this.stackFrameLevel).Msg(this.spanIdLogField + message)
+}
+
+// logs a message to the console at the ERROR level
+func (this FunctionContext) Error(message string) {
+	this.Logger.Error().Ctx(this.Context).Caller(this.stackFrameLevel).Msg(this.spanIdLogField + message)
+}
+
+// logs a message to the console at the DEBUG level
+func (this FunctionContext) Debug(message string) {
+	this.Logger.Debug().Ctx(this.Context).Caller(this.stackFrameLevel).Msg(this.spanIdLogField + message)
+}
+
+// logs a message to the console at the given log level
 func (this FunctionContext) Log(level int, message string) {
 	var e *zerolog.Event
 	switch level {
@@ -133,8 +176,10 @@ func (this FunctionContext) Log(level int, message string) {
 		e = this.Logger.Error()
 		break
 	}
-	e.Msg(this.spanIdLogField + message)
+	e.Ctx(this.Context).Caller(this.stackFrameLevel).Msg(this.spanIdLogField + message)
 }
+
+// Formats a message with the given format and logs it to the console at the given log level
 func (this FunctionContext) Logf(level int, format string, args ...interface{}) {
 	var e *zerolog.Event
 	switch level {
@@ -151,49 +196,69 @@ func (this FunctionContext) Logf(level int, format string, args ...interface{}) 
 		e = this.Logger.Error()
 		break
 	}
-	e.Msgf(this.spanIdLogField+format, args...)
+	e.Ctx(this.Context).Caller(this.stackFrameLevel).Msgf(this.spanIdLogField+format, args...)
 }
 
+// Formats a message with the given format and logs it to the console at the INFO level
 func (this FunctionContext) Infof(format string, args ...interface{}) {
-	this.Logger.Info().Msgf(this.spanIdLogField+format, args...)
-}
-func (this FunctionContext) Warnf(format string, args ...interface{}) {
-	this.Logger.Warn().Msgf(this.spanIdLogField+format, args...)
-}
-func (this FunctionContext) Errorf(format string, args ...interface{}) {
-	this.Logger.Error().Msgf(this.spanIdLogField+format, args...)
-}
-func (this FunctionContext) Debugf(format string, args ...interface{}) {
-	this.Logger.Debug().Msgf(this.spanIdLogField+format, args...)
+	this.Logger.Info().Ctx(this.Context).Caller(this.stackFrameLevel).Msgf(this.spanIdLogField+format, args...)
 }
 
-func (this FunctionContext) FailResponse(errorCode int, explanation string) {
-	this.ErrResponse(errorCode, nil, explanation)
+// Formats a message with the given format and logs it to the console at the WARN level
+func (this FunctionContext) Warnf(format string, args ...interface{}) {
+	this.Logger.Warn().Ctx(this.Context).Caller(this.stackFrameLevel).Msgf(this.spanIdLogField+format, args...)
 }
+
+// Formats a message with the given format and logs it to the console at the ERROR level
+func (this FunctionContext) Errorf(format string, args ...interface{}) {
+	this.Logger.Error().Ctx(this.Context).Caller(this.stackFrameLevel).Msgf(this.spanIdLogField+format, args...)
+}
+
+// Formats a message with the given format and logs it to the console at the DEBUG level
+func (this FunctionContext) Debugf(format string, args ...interface{}) {
+	this.Logger.Debug().Ctx(this.Context).Caller(this.stackFrameLevel).Msgf(this.spanIdLogField+format, args...)
+}
+
+// Builds, sends, and logs an error response for the user with the given message and error code.
+func (this FunctionContext) FailResponse(errorCode int, explanation string) {
+	this.stackFrameLevel++
+	this.ErrResponse(errorCode, nil, explanation)
+	this.stackFrameLevel--
+}
+
+// Builds, sends, and logs an error response for the user with the given message and error code. Also attaches the given error object to the message in the logs
 func (this FunctionContext) ErrResponse(errorCode int, err error, explanation string) {
+	this.stackFrameLevel++
 	w := this.Response
 
 	this.Errorf("Exception occured (Error code %v) \"%s\": %s", errorCode, explanation, err.Error())
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	result, err := json.Marshal(ErrorResponse{
+	result, err := json.Marshal(ErrorResponseStruct{
 		SpanId:    this.SpanId,
 		Message:   explanation,
 		ErrorCode: errorCode,
 	})
 
 	if err != nil {
-		this.Logger.Panic().Msg(this.spanIdLogField + "Could not serialize the error to JSON: " + err.Error())
+		this.stackFrameLevel--
+		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not serialize the error to JSON: " + err.Error())
+		return
 	}
 	w.WriteHeader(errorCode)
 	_, err = w.Write(result)
 	if err != nil {
-		this.Logger.Panic().Msg(this.spanIdLogField + "Could not send response to user: " + err.Error())
+		this.stackFrameLevel--
+		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not send response to user: " + err.Error())
+		return
 	}
+	this.stackFrameLevel--
 }
 
+// Builds, sends, and logs an OK response for the user with the given Content Type and message body.
 func (this FunctionContext) OkResponse(format string, data []byte) {
+	this.stackFrameLevel++
 	w := this.Response
 
 	this.Info("Finished processing the request")
@@ -203,24 +268,45 @@ func (this FunctionContext) OkResponse(format string, data []byte) {
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write(data)
 	if err != nil {
-		this.Logger.Panic().Msg(this.spanIdLogField + "Could not send response to user: " + err.Error())
+		this.stackFrameLevel--
+		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not send response to user: " + err.Error())
+		return
 	}
+	this.stackFrameLevel--
 }
-func (this FunctionContext) OkResponseJson(object interface{}) {
 
-	resp := SuccessResponse{
+/*
+Builds, sends, and logs an OK response for the user with the given object/value serialized with Json.
+The given data will be wrapped within the SuccessResponseStruct struct within its "data" json field.
+Example:
+*/
+/*
+{ "foo":"bar" }
+*/
+// The object will generate a json response like
+/*
+{ "spanId": "asdf1234", "data": { "foo":"bar" } }
+*/
+func (this FunctionContext) OkResponseJson(data interface{}) {
+	this.stackFrameLevel++
+	resp := SuccessResponseStruct{
 		SpanId: this.spanIdLogField,
-		Data:   object,
+		Data:   data,
 	}
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		this.Logger.Panic().Msg(this.spanIdLogField + "Could not serialize object: " + err.Error())
+		this.stackFrameLevel--
+		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not serialize data: " + err.Error())
+		return
 	}
 
 	this.OkResponse("application/json; charset=utf-8", bytes)
+	this.stackFrameLevel--
 }
 
+// A fix for problems with testing libraries which compare types through reflection.
+// Casts this Json object to a map[string]interface{}
 func (this Json) AsMap() map[string]interface{} {
 	return this
 }

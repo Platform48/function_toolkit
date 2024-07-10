@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	tk "function_toolkit"
+	tk "github.com/Platform48/function_toolkit"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"net/http"
@@ -49,7 +49,7 @@ var _ = Describe("Toolkit OkJson", func() {
 
 	When("the request is valid", func() {
 		It("should return an OK answer", func() {
-			var res tk.SuccessResponse
+			var res tk.SuccessResponseStruct
 			err := json.NewDecoder(rr.Body).Decode(&res)
 			Expect(rr.Code).To(Equal(http.StatusOK))
 			Expect(err).ToNot(HaveOccurred())
@@ -81,7 +81,7 @@ var _ = Describe("Toolkit ErrJson", func() {
 
 	When("the request is invalid", func() {
 		It("should return an error", func() {
-			var res tk.ErrorResponse
+			var res tk.ErrorResponseStruct
 			err := json.NewDecoder(rr.Body).Decode(&res)
 			Expect(rr.Code).To(Equal(http.StatusBadRequest))
 			Expect(err).ToNot(HaveOccurred())
