@@ -290,7 +290,7 @@ Example:
 func (this FunctionContext) OkResponseJson(data interface{}) {
 	this.stackFrameLevel++
 	resp := SuccessResponseStruct{
-		SpanId: this.spanIdLogField,
+		SpanId: this.SpanId,
 		Data:   data,
 	}
 
