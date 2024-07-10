@@ -310,3 +310,8 @@ func (this FunctionContext) OkResponseJson(data interface{}) {
 func (this Json) AsMap() map[string]interface{} {
 	return this
 }
+
+// Serializes this Json object into bytes through json.Marshal
+func (this Json) Marshal() ([]byte, error) {
+	return json.Marshal(this)
+}
