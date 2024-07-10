@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/rs/zerolog"
 	"github.com/teris-io/shortid"
+	"io"
 	"net/http"
 	"os"
 )
@@ -112,6 +113,9 @@ func (this FunctionContext) HasParameter(name string) bool {
 func (this FunctionContext) GetBody() ([]byte, error) {
 	var result []byte = make([]byte, this.Request.ContentLength)
 	_, err := this.Request.Body.Read(result)
+	if err == io.EOF {
+		err = nil
+	}
 
 	return result, err
 }
