@@ -235,7 +235,11 @@ func (this FunctionContext) ErrResponse(errorCode int, err error, explanation st
 	this.stackFrameLevel++
 	w := this.Response
 
-	this.Errorf("Exception occured (Error code %v) \"%s\": %s", errorCode, explanation, err.Error())
+	if err != nil {
+		this.Errorf("Exception occured (Error code %v) \"%s\": %s", errorCode, explanation, err.Error())
+	} else {
+		this.Errorf("Exception occured (Error code %v) \"%s\"", errorCode, explanation)
+	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
