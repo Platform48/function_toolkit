@@ -121,7 +121,7 @@ func (this FunctionContext) GetBody() ([]byte, error) {
 }
 
 // Deserializes the request's body into the given object through json.Unmarshal(). Returns an error in case the request is invalid, or is not in the json format. Also checks the Content-Type header to make sure the body is in the json format.
-func (this FunctionContext) GetJsonBody(result *any) error {
+func (this FunctionContext) GetBodyJson(result any) error {
 	if this.GetHeader("Content-Type") != "application/json" {
 		return errors.New("Content-Type must be application/json")
 	}
@@ -129,6 +129,7 @@ func (this FunctionContext) GetJsonBody(result *any) error {
 	if err != nil {
 		return err
 	}
+
 	return json.Unmarshal(bytes, result)
 }
 
