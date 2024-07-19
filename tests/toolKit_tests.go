@@ -114,6 +114,7 @@ var _ = Describe("Toolkit", func() {
 				Expect(r).To(ContainSubstring("Could not send response to user: test Error"))
 			}()
 			ctx.OkResponse("application/json", []byte(fmt.Sprintf("{\"foo\":\"bar\"}")))
+			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
 		})
 	})
 	When("ErrorResponse Error", func() {
@@ -134,6 +135,7 @@ var _ = Describe("Toolkit", func() {
 				Expect(r).To(ContainSubstring("Could not send response to user: test Error"))
 			}()
 			ctx.ErrResponse(http.StatusInternalServerError, fmt.Errorf("test Error"), "test Error")
+			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
 		})
 	})
 
@@ -155,6 +157,7 @@ var _ = Describe("Toolkit", func() {
 				Expect(r).To(ContainSubstring("Could not send response to user: test Error"))
 			}()
 			ctx.FailResponse(http.StatusInternalServerError, "test Error")
+			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
 		})
 	})
 	When("Log is called with log level info", func() {
