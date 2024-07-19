@@ -194,15 +194,18 @@ func (this FunctionContext) ErrResponse(errorCode int, err error, explanation st
 	if err != nil {
 		this.stackFrameLevel--
 		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not serialize the error to JSON: " + err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(errorCode)
 	_, err = w.Write(result)
 	if err != nil {
 		this.stackFrameLevel--
 		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not send response to user: " + err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	w.WriteHeader(errorCode)
 	this.stackFrameLevel--
 }
 
@@ -215,13 +218,14 @@ func (this FunctionContext) OkResponse(format string, data []byte) {
 
 	w.Header().Set("Content-Type", format)
 
-	w.WriteHeader(http.StatusOK)
 	_, err := w.Write(data)
 	if err != nil {
 		this.stackFrameLevel--
 		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not send response to user: " + err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 	this.stackFrameLevel--
 }
 
