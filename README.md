@@ -10,7 +10,7 @@ To create it simply call the ``toolkit.FuncCtx(w, r)`` function with the request
 
 ```golang
 import (
-	tk "github.com/Platform48/p48-toolkit"
+	tk "github.com/Platform48/function_toolkit"
 )
 
 func yourJellyFaasFunction(w http.ResponseWriter, r *http.Request) {
@@ -21,27 +21,6 @@ func yourJellyFaasFunction(w http.ResponseWriter, r *http.Request) {
 ```
 
 When the ctx object is created it automatically assings a span id to your request, and generates a ``context.Context`` object. You can access them through the ``ctx.SpanId`` and ``ctx.Context`` fields.
-
-### Request information
-You can then read the body of the request through the ``ctx.GetBody()`` and ``ctx.GetJsonBody(&result)`` methods.
-
-```golang
-bytes, err := ctx.GetBody() //  Reads Content-Length bytes from the request's body and returns them as a byte array.
-
-var result yourResponseObject
-err = ctx.GetJsonBody(&result)  //  Reads Content-Length bytes from the request's body and deserializes them into the given object through json.Unmarshal. This method doesn't check the Content-Type.
-```
-
-You can also check the query parameters and headers of the request through the ``ctx.HasParameter(name)``, ``ctx.GetParameter(name)``, and ``ctx.GetHeader(name)`` methods.
-```golang
-var exists bool = ctx.HasParameter("param") //  Returns true if the given query parameter exists in the url of the request, false otherwise
-
-var queryValue string = ctx.GetParameter("param") //  Returns the value of the given query parameter as a string
-
-var headerValue string = ctx.GetHeader("Content-Type") //  Returns the value of the given header as a string
-```
-
-You can also access the request information by manually accessing the request reader through the ``ctx.Request`` field.
 
 ### Logging
 
