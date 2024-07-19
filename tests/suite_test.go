@@ -8,6 +8,5 @@ import (
 
 func TestToolkit(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Toolkit OkJson")
-	RunSpecs(t, "Toolkit ErrJson")
+	RunSpecs(t, "Toolkit")
 }
