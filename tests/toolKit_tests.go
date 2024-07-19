@@ -66,12 +66,29 @@ var _ = Describe("Toolkit", func() {
 			Expect(newCtx.Logger).To(Equal(ctx.Logger))
 		})
 	})
+	When("ErrorResponse Success", func() {
+		BeforeEach(func() {
+			ctx.ErrResponse(http.StatusUnauthorized, fmt.Errorf("error message"), fmt.Sprintf("error message"))
+		})
+		It("should return a status unauthorized", func() {
+			Expect(rr.Body.Bytes()).To(ContainSubstring(`"errorCode":401`))
+		})
+	})
+	When("FailResponse Success", func() {
+		BeforeEach(func() {
+			ctx.FailResponse(http.StatusBadRequest, fmt.Sprintf("error message"))
+		})
+		It("should return a status bad request", func() {
+			Expect(rr.Body.Bytes()).To(ContainSubstring(`"errorCode":400`))
+		})
+	})
 	When("OkResponse Success", func() {
 		BeforeEach(func() {
 			ctx.OkResponse("json", []byte(fmt.Sprintf("{\"foo\":\"bar\"}")))
 		})
 		It("return a 200", func() {
 			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(rr.Body).ToNot(ContainSubstring(`"errorCode"`))
 			Expect(rr.Body).To(ContainSubstring("{\"foo\":\"bar\"}"))
 		})
 	})
@@ -351,6 +368,30 @@ var _ = Describe("Toolkit", func() {
 		It("should write to the debug level", func() {
 			ctx.Debugf("formatted %s", "foo bar")
 			Expect(outBuffer.String()).To(ContainSubstring("formatted foo bar"))
+		})
+	})
+	When("The logf level isn't specified", func() {
+		BeforeEach(func() {
+			outBuffer = bytes.Buffer{}
+			ctx = toolkit.FuncCtx(rr, rq)
+			logger := zerolog.New(&outBuffer).With().Timestamp().Str("spanId", "["+"testSpanId"+"]").Logger()
+			ctx.Logger = &logger
+		})
+		It("", func() {
+			ctx.Logf(123123, "msg")
+			Expect(outBuffer.String()).To(ContainSubstring("msg"))
+		})
+	})
+	When("The log level isn't specified", func() {
+		BeforeEach(func() {
+			outBuffer = bytes.Buffer{}
+			ctx = toolkit.FuncCtx(rr, rq)
+			logger := zerolog.New(&outBuffer).With().Timestamp().Str("spanId", "["+"testSpanId"+"]").Logger()
+			ctx.Logger = &logger
+		})
+		It("", func() {
+			ctx.Log(123123, "msg")
+			Expect(outBuffer.String()).To(ContainSubstring("msg"))
 		})
 	})
 })

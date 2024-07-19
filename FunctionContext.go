@@ -121,6 +121,8 @@ func (this FunctionContext) Log(level int, message string) {
 	case LogLevelError:
 		e = this.Logger.Error()
 		break
+	default:
+		e = this.Logger.Debug()
 	}
 	e.Ctx(this.Context).Caller(this.stackFrameLevel).Msg(this.spanIdLogField + message)
 }
@@ -141,6 +143,8 @@ func (this FunctionContext) Logf(level int, format string, args ...interface{}) 
 	case LogLevelError:
 		e = this.Logger.Error()
 		break
+	default:
+		e = this.Logger.Debug()
 	}
 	e.Ctx(this.Context).Caller(this.stackFrameLevel).Msgf(this.spanIdLogField+format, args...)
 }
