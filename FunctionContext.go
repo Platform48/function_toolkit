@@ -29,9 +29,8 @@ type FunctionContext struct {
 
 // ErrorResponseStruct used internally to return data in an invalid json response. Exported to allow for manually building responses
 type ErrorResponseStruct struct {
-	SpanId    string `json:"spanId"`
-	ErrorCode int    `json:"errorCode"`
-	Message   string `json:"message,omitempty"`
+	SpanId  string `json:"spanId"`
+	Message string `json:"message,omitempty"`
 }
 
 // SuccessResponseStruct used internally to return data in a successful json response. Exported to allow for manually building responses
