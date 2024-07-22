@@ -2,7 +2,6 @@ package toolkit
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/rs/zerolog"
 	"github.com/teris-io/shortid"
 	"net/http"
@@ -167,94 +166,4 @@ func (this FunctionContext) Errorf(format string, args ...interface{}) {
 // Debugf Formats a message with the given format and logs it to the console at the DEBUG level
 func (this FunctionContext) Debugf(format string, args ...interface{}) {
 	this.Logger.Debug().Ctx(this.Context).Caller(this.stackFrameLevel).Msgf(this.spanIdLogField+format, args...)
-}
-
-// FailResponse Builds, sends, and logs an error response for the user with the given message and error code.
-func (this FunctionContext) FailResponse(errorCode int, explanation string) {
-	this.stackFrameLevel++
-	this.ErrResponse(errorCode, nil, explanation)
-	this.stackFrameLevel--
-}
-
-// ErrResponse Builds, sends, and logs an error response for the user with the given message and error code. Also attaches the given error object to the message in the logs
-func (this FunctionContext) ErrResponse(errorCode int, err error, explanation string) {
-	this.stackFrameLevel++
-	w := this.Response
-
-	if err != nil {
-		this.Errorf("Exception occured (Error code %v) \"%s\": %s", errorCode, explanation, err.Error())
-	} else {
-		this.Errorf("Exception occured (Error code %v) \"%s\"", errorCode, explanation)
-	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-
-	result, err := json.Marshal(ErrorResponseStruct{
-		SpanId:    this.SpanId,
-		Message:   explanation,
-		ErrorCode: errorCode,
-	})
-
-	if err != nil {
-		this.stackFrameLevel--
-		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not serialize the error to JSON: " + err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	_, err = w.Write(result)
-	if err != nil {
-		this.stackFrameLevel--
-		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not send response to user: " + err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(errorCode)
-	this.stackFrameLevel--
-}
-
-// OkResponse Builds, sends, and logs an OK response for the user with the given Content Type and message body.
-func (this FunctionContext) OkResponse(format string, data []byte) {
-	this.stackFrameLevel++
-	w := this.Response
-
-	this.Info("Finished processing the request")
-
-	w.Header().Set("Content-Type", format)
-
-	_, err := w.Write(data)
-	if err != nil {
-		this.stackFrameLevel--
-		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not send response to user: " + err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	this.stackFrameLevel--
-}
-
-// OkResponseJson /*
-/*
-{ "foo":"bar" }
-*/
-// The object will generate a json response like
-/*
-{ "spanId": "asdf1234", "data": { "foo":"bar" } }
-*/
-func (this FunctionContext) OkResponseJson(data interface{}) {
-	this.stackFrameLevel++
-	resp := SuccessResponseStruct{
-		SpanId: this.SpanId,
-		Data:   data,
-	}
-
-	bytes, err := json.Marshal(resp)
-	if err != nil {
-		this.stackFrameLevel--
-		this.Logger.Panic().Ctx(this.Context).Caller(this.stackFrameLevel + 1).Msg(this.spanIdLogField + "Could not serialize data: " + err.Error())
-		return
-	}
-
-	this.OkResponse("application/json; charset=utf-8", bytes)
-	this.stackFrameLevel--
 }

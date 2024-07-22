@@ -2,8 +2,6 @@ package toolkits
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	toolkit "github.com/Platform48/function_toolkit"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,117 +62,6 @@ var _ = Describe("Toolkit", func() {
 			Expect(newCtx.Response).To(Equal(ctx.Response))
 			Expect(newCtx.Request).To(Equal(ctx.Request))
 			Expect(newCtx.Logger).To(Equal(ctx.Logger))
-		})
-	})
-	When("ErrorResponse Success", func() {
-		BeforeEach(func() {
-			ctx.ErrResponse(http.StatusUnauthorized, fmt.Errorf("error message"), fmt.Sprintf("error message"))
-		})
-		It("should return a status unauthorized", func() {
-			Expect(rr.Body.Bytes()).To(ContainSubstring(`"errorCode":401`))
-		})
-	})
-	When("FailResponse Success", func() {
-		BeforeEach(func() {
-			ctx.FailResponse(http.StatusBadRequest, fmt.Sprintf("error message"))
-		})
-		It("should return a status bad request", func() {
-			Expect(rr.Body.Bytes()).To(ContainSubstring(`"errorCode":400`))
-		})
-	})
-	When("OkResponse Success", func() {
-		BeforeEach(func() {
-			ctx.OkResponse("json", []byte(fmt.Sprintf("{\"foo\":\"bar\"}")))
-		})
-		It("return a 200", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK))
-			Expect(rr.Body).ToNot(ContainSubstring(`"errorCode"`))
-			Expect(rr.Body).To(ContainSubstring("{\"foo\":\"bar\"}"))
-		})
-	})
-	When("OkResponseJson Success", func() {
-		BeforeEach(func() {
-			data := struct {
-				Foo string `json:"foo"`
-				Bar string `json:"bar"`
-			}{
-				Foo: "foo foo",
-				Bar: "bar bar",
-			}
-
-			ctx.OkResponseJson(data)
-		})
-		It("return a 200", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK))
-			Expect(rr.Body.String()).To(ContainSubstring("{\"foo\":\"foo foo\",\"bar\":\"bar bar\"}"))
-			var req toolkit.SuccessResponseStruct
-			err := json.NewDecoder(rr.Body).Decode(&req)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(req.SpanId).ToNot(BeNil())
-		})
-	})
-	When("OkResponse Error", func() {
-		BeforeEach(func() {
-			rq = &http.Request{}
-			// Create a new MockResponseRecorder
-			rr := new(MockResponseRecorder)
-			rr.ResponseWriter = httptest.NewRecorder()
-
-			// Setup the mock for Write method to return a test error
-			rr.On("Write", mock.Anything).Return(0, fmt.Errorf("test Error"))
-
-			ctx = toolkit.FuncCtx(rr, rq)
-		})
-		It("should panic", func() {
-			defer func() {
-				r := recover()
-				Expect(r).To(ContainSubstring("Could not send response to user: test Error"))
-			}()
-			ctx.OkResponse("application/json", []byte(fmt.Sprintf("{\"foo\":\"bar\"}")))
-			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
-		})
-	})
-	When("ErrorResponse Error", func() {
-		BeforeEach(func() {
-			rq = &http.Request{}
-			// Create a new MockResponseRecorder
-			rr := new(MockResponseRecorder)
-			rr.ResponseWriter = httptest.NewRecorder()
-
-			// Setup the mock for Write method to return a test error
-			rr.On("Write", mock.Anything).Return(0, fmt.Errorf("test Error"))
-
-			ctx = toolkit.FuncCtx(rr, rq)
-		})
-		It("should panic", func() {
-			defer func() {
-				r := recover()
-				Expect(r).To(ContainSubstring("Could not send response to user: test Error"))
-			}()
-			ctx.ErrResponse(http.StatusInternalServerError, fmt.Errorf("test Error"), "test Error")
-			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
-		})
-	})
-
-	When("FailResponse Error", func() {
-		BeforeEach(func() {
-			rq = &http.Request{}
-			// Create a new MockResponseRecorder
-			rr := new(MockResponseRecorder)
-			rr.ResponseWriter = httptest.NewRecorder()
-
-			// Setup the mock for Write method to return a test error
-			rr.On("Write", mock.Anything).Return(0, fmt.Errorf("test Error"))
-
-			ctx = toolkit.FuncCtx(rr, rq)
-		})
-		It("should panic", func() {
-			defer func() {
-				r := recover()
-				Expect(r).To(ContainSubstring("Could not send response to user: test Error"))
-			}()
-			ctx.FailResponse(http.StatusInternalServerError, "test Error")
-			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
 		})
 	})
 	When("Log is called with log level info", func() {
